@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chensue"
+version = "0.1.0"
+description = "Export your Lichess games in Ensue"
+authors = [{name = "Anne-Laure"}]
+dependencies = [
+  "mcp[cli]",
+  "berserk",
+  "python-chess",
+  "python-dotenv",
+]
