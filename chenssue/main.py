@@ -129,7 +129,7 @@ async def async_main():
         "user", type=str, help="The name of the user to get the games from"
     )
     parser.add_argument(
-        "--max", type=int, default=5000, help="The maximum number of games to export"
+        "--max", type=int, default=100, help="The maximum number of games to export"
     )
     parser.add_argument(
         "--until",
