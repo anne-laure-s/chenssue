@@ -1,4 +1,4 @@
-# 📘 CHEnSSue — Export Lichess Games into Ensue shared memory
+# ♟️ CHEnSSue — Export Lichess Games into Ensue shared memory
 
 `chenssue` is a command-line tool that:
 
