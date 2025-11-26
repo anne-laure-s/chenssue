@@ -64,6 +64,10 @@ def key(game, user):
     return f"{user}__{game['date']}__{game['format']}__{game['color']}__{game['result']}__{game['opening']}__{game['id']}"
 
 
+def description(game, user):
+    return f"Chess game played by {user} on {game["date"].replace(".", "-")} as {game['color']}. Format: {game['format']}. Outcome: {game['result']}. Opening ECO code: {game['opening']}"
+
+
 async def ensue_publish(games, user):
     print("Connecting to Ensue...")
 
@@ -87,7 +91,7 @@ async def ensue_publish(games, user):
                 key_name = key(game, user)
                 args = {
                     "key_name": key_name,
-                    "description": f"Chess game played by {user}",
+                    "description": description(game, user),
                     "value": game["content"],
                     "embed": True,
                     "embed_source": "value",
