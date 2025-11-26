@@ -1,4 +1,4 @@
-from config import ensue_token
+from .config import ensue_token
 from berserk import Client
 import chess.pgn
 import io
@@ -121,7 +121,7 @@ async def ensue_publish(games, args):
             )
 
 
-async def main():
+async def async_main():
     parser = ArgumentParser(
         description="Get the most recent games played by the given player"
     )
@@ -147,5 +147,9 @@ async def main():
     await ensue_publish(games, args)
 
 
+def main():
+    asyncio.run(async_main())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
