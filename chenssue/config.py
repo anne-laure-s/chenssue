@@ -4,7 +4,7 @@ import os
 
 load_dotenv()
 
-ensue_token = os.getenv("ENSUE_TOKEN")
+ensue_token = os.getenv("ENSUE_API_KEY")
 
 if not ensue_token:
-    raise RuntimeError("ENSUE_TOKEN is not set")
+    raise RuntimeError("ENSUE_API_KEY is not set")
