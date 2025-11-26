@@ -68,7 +68,7 @@ def description(game, user):
     return f"Chess game played by {user} on {game["date"].replace(".", "-")} as {game['color']}. Format: {game['format']}. Outcome: {game['result']}. Opening ECO code: {game['opening']}"
 
 
-async def ensue_publish(games, user):
+async def ensue_publish(games, args):
     print("Connecting to Ensue...")
 
     async with streamablehttp_client(
@@ -87,17 +87,17 @@ async def ensue_publish(games, user):
             created_memory_counter = 0
             skipped_memory_counter = 0
             for game in games:
-                game = game_metadata(game, user)
-                key_name = key(game, user)
-                args = {
+                game = game_metadata(game, args.user)
+                key_name = key(game, args.user)
+                ensue_args = {
                     "key_name": key_name,
-                    "description": description(game, user),
+                    "description": description(game, args.user),
                     "value": game["content"],
                     "embed": True,
                     "embed_source": "value",
                 }
                 try:
-                    await session.call_tool("create_memory", args)
+                    await session.call_tool("create_memory", ensue_args)
                     print(f"Memory '{key_name}' created.")
                     created_memory_counter += 1
                 except McpError as e:
@@ -106,12 +106,18 @@ async def ensue_publish(games, user):
                         'duplicate key value violates unique constraint "memories_pkey"'
                         in msg
                     ):
-                        print(f"[SKIP] found an existing memory for key {key_name}")
+                        if args.update:
+                            await session.call_tool("update_memory", ensue_args)
+                            print(
+                                f"[UPDATE] updated existing memory for key {key_name}"
+                            )
+                        else:
+                            print(f"[SKIP] found an existing memory for key {key_name}")
                         skipped_memory_counter += 1
                     else:
                         raise
             print(
-                f"Done! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped."
+                f"Done! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
             )
 
 
@@ -131,9 +137,14 @@ async def main():
         default=None,
         help="The latest date to get the games from (timestamp UNIX in milliseconds)",
     )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Update existing memories instead of skipping them",
+    )
     args = parser.parse_args()
     games = get_games(args)
-    await ensue_publish(games, args.user)
+    await ensue_publish(games, args)
 
 
 if __name__ == "__main__":
