@@ -89,6 +89,8 @@ async def ensue_publish(games, user):
                     "key_name": key_name,
                     "description": f"Chess game played by {user}",
                     "value": game["content"],
+                    "embed": True,
+                    "embed_source": "value",
                 }
                 try:
                     await session.call_tool("create_memory", args)
