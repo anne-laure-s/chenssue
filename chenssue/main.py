@@ -1,5 +1,6 @@
 from .config import ensue_token
-from berserk import Client
+import berserk
+import sys
 import chess.pgn
 import io
 
@@ -22,11 +23,20 @@ def vprint(args, message):
 
 def get_games(args, since=None):
     print("Fetching games from Lichess...")
-    games = list(
-        Client().games.export_by_player(
-            args.user, as_pgn=True, clocks=True, max=args.max, until=args.until
+    try:
+        games = list(
+            berserk.Client().games.export_by_player(
+                args.user, as_pgn=True, clocks=True, max=args.max, until=args.until, since=since
+            )
         )
-    )
+    except berserk.exceptions.ResponseError as e:
+        # Lichess user does not exist
+        if e.response is not None and e.response.status_code == 404:
+            print(f"Error: Lichess user '{args.user}' does not exist.")
+            sys.exit(1)
+        else:
+            # Any other HTTP error
+            raise
     print(f"{len(games)} games successfully retreived!")
     # Reverse the list such that the games are from the oldest to the newest
     games.reverse()
