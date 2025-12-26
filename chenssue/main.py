@@ -11,6 +11,8 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.exceptions import McpError
 import base64
+import httpx
+from datetime import datetime
 import json
 
 ensue_url = "https://api.ensue-network.ai/"
@@ -166,6 +168,66 @@ async def ensue_publish(games, args):
                 f"Done! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
             )
 
+async def fetch_games_and_publish(args):
+    games = get_games(args)
+    await ensue_publish(games, args)
+
+def date_from_key(user, key):
+    prefix = f"{user}__"
+    key_name = key['key_name']
+    if not key_name.startswith(prefix):
+        return None
+    # Remove "user__"
+    rest = key_name[len(prefix):]
+    # Extract date before the next "__"
+    date_str, *_ = rest.split("__", 1)
+    try:
+        return datetime.strptime(date_str, "%Y.%m.%d")
+    except ValueError:
+        return None
+    
+
+# Note: this also checks the date format
+def most_recent_game_date(args, keys):
+    most_recent = None
+    for key in keys:
+        date = date_from_key(args.user, key)
+        if date is None : pass
+        elif most_recent == None : most_recent = date
+        else : most_recent = max(most_recent, date)
+    return most_recent
+    
+       
+async def fetch_most_recent_game_date(args):
+    print("Connecting to Ensue...")
+
+    async with streamablehttp_client(
+        ensue_url,
+        headers={
+            "Authorization": f"Bearer {ensue_token}",
+        },
+    ) as (
+        read_stream,
+        write_stream,
+        _,
+    ):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print("Fetching games in Ensue to determine the most recent game stored...")
+            ensue_args = {"limit" : 100000000} # Stupidly high limit so all keys are retrieved
+            keys_answer = await session.call_tool("list_keys", ensue_args)
+            content = keys_answer.content[0]
+            data = json.loads(content.text)
+            keys = data["keys"]
+            last_game_date = most_recent_game_date(args, keys)
+            if last_game_date is None:
+                print(f"No existing games found for user {args.user} in Ensue; fetching from scratch.")
+                games = get_games(args)
+            else:
+                since = berserk.utils.to_millis(last_game_date)
+                games = get_games(args, since=since)
+            await ensue_publish(games, args)
 
 async def async_main():
     parser = ArgumentParser(
@@ -175,7 +237,7 @@ async def async_main():
         "user", type=str, help="The name of the user to get the games from"
     )
     parser.add_argument(
-        "--max", type=int, default=100, help="The maximum number of games to export"
+        "--max", type=int, default=None, help="The maximum number of games to export (default=100 in normal mode)"
     )
     parser.add_argument(
         "--until",
@@ -193,9 +255,21 @@ async def async_main():
         action="store_true",
         help="Print each memory status",
     )
+    parser.add_argument(
+        "--only-new-games",
+        action="store_true",
+        help="Add all games that are more recent than the last game stored in Ensue",
+    )
     args = parser.parse_args()
-    games = get_games(args)
-    await ensue_publish(games, args)
+    if args.only_new_games :
+        if args.max is None :
+            # capture all the games of the user
+            args.max = 100000
+        await fetch_most_recent_game_date(args)
+    else :
+        if args.max is None :
+            args.max = 100
+        await fetch_games_and_publish(args)
 
 
 def main():
