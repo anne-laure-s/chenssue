@@ -11,6 +11,7 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.exceptions import McpError
 import base64
 
+ensue_url = "https://api.ensue-network.ai/"
 
 def get_games(args):
     print("Fetching games from Lichess...")
@@ -72,7 +73,7 @@ async def ensue_publish(games, args):
     print("Connecting to Ensue...")
 
     async with streamablehttp_client(
-        "https://www.ensue-network.ai/api/",
+        ensue_url,
         headers={
             "Authorization": f"Bearer {ensue_token}",
         },
