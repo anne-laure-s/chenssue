@@ -21,6 +21,8 @@ def get_games(args):
         )
     )
     print(f"{len(games)} games successfully retreived!")
+    # Reverse the list such that the games are from the oldest to the newest
+    games.reverse()
     return games
 
 
