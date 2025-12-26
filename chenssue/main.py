@@ -14,7 +14,13 @@ import json
 
 ensue_url = "https://api.ensue-network.ai/"
 
-def get_games(args):
+
+def vprint(args, message):
+    if args.verbose:
+        print(message)
+
+
+def get_games(args, since=None):
     print("Fetching games from Lichess...")
     games = list(
         Client().games.export_by_player(
@@ -129,7 +135,7 @@ async def ensue_publish(games, args):
                 status = r["status"]
 
                 if status == "succeeded":
-                    print(f"[CREATED] {key_name}")
+                    vprint(args, f"[CREATED] {key_name}")
                     created_memory_counter += 1
                     
                 elif status == "failed":
@@ -138,9 +144,9 @@ async def ensue_publish(games, args):
                         if args.update:
                             update_args = items_by_key[key_name]
                             await session.call_tool("update_memory", update_args)
-                            print(f"[UPDATED] {key_name}")
+                            vprint(args, f"[UPDATED] {key_name}")
                         else:
-                            print(f"[SKIPPED] {key_name}")
+                            vprint(args, f"[SKIPPED] {key_name}")
                         skipped_memory_counter += 1
                     else:
                         raise RuntimeError(f"Create failed for {key_name}: {err}")
@@ -171,6 +177,11 @@ async def async_main():
         "--update",
         action="store_true",
         help="Update existing memories instead of skipping them",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print each memory status",
     )
     args = parser.parse_args()
     games = get_games(args)
