@@ -10,6 +10,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.exceptions import McpError
 import base64
+import json
 
 ensue_url = "https://api.ensue-network.ai/"
 
@@ -71,6 +72,20 @@ def description(game, user):
     return f"Chess game played by {user} on {game["date"].replace(".", "-")} as {game['color']}. Format: {game['format']}. Outcome: {game['result']}. Opening ECO code: {game['opening']}"
 
 
+def get_report(call_tool_result):
+    if getattr(call_tool_result, "structuredContent", None) is not None:
+        return call_tool_result.structuredContent
+    # fallback: parse TextContent
+    for c in call_tool_result.content:
+        if isinstance(c, types.TextContent):
+            return json.loads(c.text)
+    raise RuntimeError("No structuredContent and no TextContent to parse")
+
+
+def is_duplicate_error(err: str) -> bool:
+    return 'duplicate key value violates unique constraint "memories_pkey"' in err
+
+
 async def ensue_publish(games, args):
     print("Connecting to Ensue...")
 
@@ -89,36 +104,48 @@ async def ensue_publish(games, args):
             print("Creating memories in Ensue...")
             created_memory_counter = 0
             skipped_memory_counter = 0
+            items = []
             for game in games:
                 game = game_metadata(game, args.user)
                 key_name = key(game, args.user)
-                ensue_args = {
-                    "key_name": key_name,
-                    "description": description(game, args.user),
-                    "value": game["content"],
-                    "embed": True,
-                    "embed_source": "value",
-                }
-                try:
-                    await session.call_tool("create_memory", ensue_args)
-                    print(f"Memory '{key_name}' created.")
+                items.append({
+                        "key_name": key_name,
+                        "description": description(game, args.user),
+                        "value": game["content"],
+                        "embed": True,
+                        "embed_source": "value",
+                    })
+            ensue_args = {
+                "items": items
+            }
+            
+            result = await session.call_tool("create_memory", ensue_args)
+            report = get_report(result)
+            
+            items_by_key = {item["key_name"]: item for item in items}
+            
+            for r in report["results"]:
+                key_name = r["key_name"]
+                status = r["status"]
+
+                if status == "succeeded":
+                    print(f"[CREATED] {key_name}")
                     created_memory_counter += 1
-                except McpError as e:
-                    msg = str(e)
-                    if (
-                        'duplicate key value violates unique constraint "memories_pkey"'
-                        in msg
-                    ):
+                    
+                elif status == "failed":
+                    err = r.get("error", "")
+                    if is_duplicate_error(err):
                         if args.update:
-                            await session.call_tool("update_memory", ensue_args)
-                            print(
-                                f"[UPDATE] updated existing memory for key {key_name}"
-                            )
+                            update_args = items_by_key[key_name]
+                            await session.call_tool("update_memory", update_args)
+                            print(f"[UPDATED] {key_name}")
                         else:
-                            print(f"[SKIP] found an existing memory for key {key_name}")
+                            print(f"[SKIPPED] {key_name}")
                         skipped_memory_counter += 1
                     else:
-                        raise
+                        raise RuntimeError(f"Create failed for {key_name}: {err}")
+                else:
+                    raise RuntimeError(f"Unexpected status {status} for {key_name}")
             print(
                 f"Done! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
             )
