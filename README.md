@@ -4,28 +4,30 @@
 
 - fetches games from Lichess for a given user,
 - extracts structured metadata (result, color, PGN, ECO, time control, date…),
-- encodes the PGN,
+- base64-encodes the PGN,
 - generates a deterministic and unique memory key,
 - creates (or updates) this game as a memory inside an Ensue MCP server.
 
-# 📦 Installation
+---
 
-## 1. Clone the repository
+## 📦 Installation
+
+### 1. Clone the repository
 
 ```bash
 git clone https://gitlab.com/Anne-Laure_S/chenssue.git
 cd chenssue
 ```
-## 2. Create and activate a virtual environment (recommended)
+### 2. Create and activate a virtual environment (recommended)
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate    # Linux / macOS
 # OR
 .\.venv\Scripts\activate     # Windows PowerShell
-
 ```
-## 3. Install the project in editable mode
+
+### 3. Install the project in editable mode
 
 This makes the `chenssue` CLI command available instantly.
 
@@ -33,7 +35,7 @@ This makes the `chenssue` CLI command available instantly.
 pip install -e .
 ```
 
-## 4. Set your Ensue authentication key
+### 4. Set your Ensue authentication key
 
 Set your Ensue authentication token via the `ENSUE_API_KEY` environment variable or in a `.env` file:
 
@@ -44,32 +46,36 @@ The program loads it via `config.py`.
 
 If the variable is missing, the program fails early.
 
-## 5. Verify installation
+### 5. Verify installation
 
 ```bash
 chenssue --help
 ```
 If you see the CLI usage message, you are ready to use CHEnSSue! 🎉
 
-# 🕹️ Usage
+## 🕹️ Usage
 
-## Export 100 most recent games (default)
+### Export 100 most recent games (default behavior)
 ```bash
 chenssue <lichess username>
 ```
 If the user has less than 100 games, all of the games will be exported.
+The games are processed in chronological order.
 
-## Limit the number of games
+Use the `--verbose` flag to print detailed information about each game’s memory status.
+
+
+### Limit the number of games
 ```bash
 chenssue <lichess username> --max 5000
 ```
-Note: Exporting 5000 games from Lichess to Ensue takes about 45 minutes.
 
-## Export games up to a given timestamp (UNIX ms)
+### Export games up to a given timestamp (UNIX ms)
 ```bash
 chenssue <lichess username> --until 1731880000000
 ```
-## Overwrite existing memories instead of skipping them
+
+### Overwrite existing memories instead of skipping them
 
 By default, the program skip already existing memories. This default behavior can be changed with the `--update` flag:
 
@@ -77,9 +83,15 @@ By default, the program skip already existing memories. This default behavior ca
 chenssue <lichess username> --update
 ```
 
-# 🧠 In Ensue
+### Only export games newer than the latest game already stored in Ensue
 
-## Value
+```bash
+chenssue <lichess_username> --only-new-games
+```
+
+## 🧠 In Ensue
+
+### Value
 
 The fetched games PGN are stored as values; they are of the following form:
 ```
@@ -104,7 +116,7 @@ The fetched games PGN are stored as values; they are of the following form:
 1. e4 { [%clk 0:05:00] } 1... e5 { [%clk 0:05:00] } 2. Nf3 { [%clk 0:05:02] } 2... Nc6 { [%clk 0:05:01] } 3. Bb5 { [%clk 0:05:03] } 3... Nf6 { [%clk 0:05:03] } 4. O-O { [%clk 0:04:58] } 4... Nxe4 { [%clk 0:05:05] } 5. d4 { [%clk 0:04:57] } 5... Nd6 { [%clk 0:05:06] } 6. dxe5 { [%clk 0:04:57] } 6... Nxb5 { [%clk 0:05:08] } 7. a4 { [%clk 0:04:59] } 7... Nbd4 { [%clk 0:05:09] } 8. Nxd4 { [%clk 0:05:01] } 8... d5 { [%clk 0:05:09] } 9. exd6 { [%clk 0:05:03] } 9... Nxd4 { [%clk 0:05:11] } 10. Qxd4 { [%clk 0:05:05] } 10... Qxd6 { [%clk 0:05:13] } 11. Qe4+ { [%clk 0:05:08] } 11... Qe6 { [%clk 0:05:16] } 12. Qd4 { [%clk 0:05:10] } 12... Qd6 { [%clk 0:05:18] } 13. Qe4+ { [%clk 0:05:13] } 13... Qe6 { [%clk 0:05:21] } 14. Qd4 { [%clk 0:05:16] } 14... Qd6 { [%clk 0:05:24] } 1/2-1/2
 ```
 
-## Key
+### Key
 
 Each game is given a unique key of this form:
 ```
@@ -116,6 +128,6 @@ The previous example gives the following key:
 STL_Carlsen__2020.09.19__300+3__black__draw__C67__RN3FFIqr
 ```
 
-## Embedding
+### Embedding
 
 The game’s PGN is embedded in Ensue.
