@@ -104,6 +104,42 @@ def is_duplicate_error(err: str) -> bool:
     return 'duplicate key value violates unique constraint "memories_pkey"' in err
 
 
+async def create_memory_and_handle_result(args, batch_items, batch_number, session, ensue_args):
+    created_memory_counter = 0
+    skipped_memory_counter = 0
+    result = await session.call_tool("create_memory", ensue_args)
+    report = get_report(result)
+    
+    items_by_key = {item["key_name"]: item for item in batch_items }
+    
+    for r in report["results"]:
+        key_name = r["key_name"]
+        status = r["status"]
+
+        if status == "succeeded" or status == "success":
+            vprint(args, f"[CREATED] {key_name}")
+            created_memory_counter += 1
+            
+        elif status == "failed":
+            err = r.get("error", "")
+            if is_duplicate_error(err):
+                if args.update:
+                    update_args = items_by_key[key_name]
+                    await session.call_tool("update_memory", update_args)
+                    vprint(args, f"[UPDATED] {key_name}")
+                else:
+                    vprint(args, f"[SKIPPED] {key_name}")
+                skipped_memory_counter += 1
+            else:
+                raise RuntimeError(f"Create failed for {key_name}: {err}")
+        else:
+            raise RuntimeError(f"Unexpected status {status} for {key_name}")      
+    print(
+        f"Batch #{batch_number} processed! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
+    )
+    return (created_memory_counter, skipped_memory_counter)
+    
+
 async def ensue_publish(games, args):
     print("Connecting to Ensue...")
 
@@ -120,52 +156,36 @@ async def ensue_publish(games, args):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             print("Creating memories in Ensue...")
+            ensue_batch_size = 100
+            items = [[] for _ in range(int(len(games)/ ensue_batch_size) + 1)]
+            batch_counter = 0
+            counter = 0
             created_memory_counter = 0
             skipped_memory_counter = 0
-            items = []
             for game in games:
                 game = game_metadata(game, args.user)
                 key_name = key(game, args.user)
-                items.append({
+                items[batch_counter].append({
                         "key_name": key_name,
                         "description": description(game, args.user),
                         "value": game["content"],
                         "embed": True,
                         "embed_source": "value",
                     })
-            ensue_args = {
-                "items": items
-            }
-            
-            result = await session.call_tool("create_memory", ensue_args)
-            report = get_report(result)
-            
-            items_by_key = {item["key_name"]: item for item in items}
-            
-            for r in report["results"]:
-                key_name = r["key_name"]
-                status = r["status"]
-
-                if status == "succeeded":
-                    vprint(args, f"[CREATED] {key_name}")
-                    created_memory_counter += 1
-                    
-                elif status == "failed":
-                    err = r.get("error", "")
-                    if is_duplicate_error(err):
-                        if args.update:
-                            update_args = items_by_key[key_name]
-                            await session.call_tool("update_memory", update_args)
-                            vprint(args, f"[UPDATED] {key_name}")
-                        else:
-                            vprint(args, f"[SKIPPED] {key_name}")
-                        skipped_memory_counter += 1
-                    else:
-                        raise RuntimeError(f"Create failed for {key_name}: {err}")
+                if counter < ensue_batch_size - 1 and batch_counter * ensue_batch_size + counter != len(games) - 1:
+                    counter += 1       
                 else:
-                    raise RuntimeError(f"Unexpected status {status} for {key_name}")
+                    ensue_args = {
+                        "items": items[batch_counter]
+                    }
+                    created, skipped = await create_memory_and_handle_result(args, items[batch_counter], batch_counter + 1, session, ensue_args)
+                    created_memory_counter += created
+                    skipped_memory_counter += skipped
+                    batch_counter += 1
+                    counter = 0
+                    
             print(
-                f"Done! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
+                f"\nDone! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
             )
 
 async def fetch_games_and_publish(args):
