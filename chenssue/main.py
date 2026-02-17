@@ -185,7 +185,7 @@ async def ensue_publish(games, args):
                     counter = 0
                     
             print(
-                f"\nDone! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
+                f"\n♟️ Done! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
             )
 
 async def fetch_games_and_publish(args):
