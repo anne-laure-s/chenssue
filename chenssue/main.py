@@ -162,6 +162,7 @@ async def ensue_publish(games, args):
             counter = 0
             created_memory_counter = 0
             skipped_memory_counter = 0
+            outcomes = {"win" : 0, "loss" : 0, "draw" : 0}
             for game in games:
                 game = game_metadata(game, args.user)
                 key_name = key(game, args.user)
@@ -172,6 +173,7 @@ async def ensue_publish(games, args):
                         "embed": True,
                         "embed_source": "value",
                     })
+                outcomes[game["result"]] += 1 
                 if counter < ensue_batch_size - 1 and batch_counter * ensue_batch_size + counter != len(games) - 1:
                     counter += 1       
                 else:
@@ -186,6 +188,7 @@ async def ensue_publish(games, args):
                     
             print(
                 f"\n♟️ Done! {created_memory_counter} memories successfully created, {skipped_memory_counter} skipped/updated."
+                f"\n♟️ Seen {outcomes['win']} wins, {outcomes['loss']} losses and {outcomes['draw']} draws."
             )
 
 async def fetch_games_and_publish(args):
